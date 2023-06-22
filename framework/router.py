@@ -1,5 +1,9 @@
 import functools
+import os
 import threading
+
+from framework import static_files
+from framework.static_files import StaticFiles
 
 
 class HttpRouter:
@@ -25,6 +29,8 @@ class HttpRouter:
                     cls.PATCH_PATHS = {}
                     cls.PUT_PATHS = {}
                     cls.DELETE_PATHS = {}
+                    cls.STATIC_PATHS = []
+                    cls.SERVED_STATIC_PATHS = {}
 
                     cls._instance = super().__new__(cls)
         return cls._instance
@@ -34,6 +40,72 @@ class HttpRouter:
         Initialize the class with empty dictionaries for each HTTP method.
         """
         pass
+
+
+    def add_static_route(self, static: StaticFiles):
+        """
+        Add static route.
+        :param static:
+        :return:
+        """
+        if isinstance(static, static_files.StaticFiles):
+            files = static.get_static_files()
+            dirs = static.get_static_dirs()
+
+            for path, file in files.items():
+                # check if it conflicts with other routes
+                if path in self.GET_PATHS \
+                        or path in self.POST_PATHS \
+                        or path in self.PATCH_PATHS \
+                        or path in self.PUT_PATHS \
+                        or path in self.DELETE_PATHS:
+                    raise Exception("Static route (file) conflicts with other routes.")
+                else:
+                    # combine path and file
+                    combined_path = path + file
+
+                    # also check if in the STATIC_PATHS
+                    for static_path in self.STATIC_PATHS:
+                        if static_path['path'] == combined_path:
+                            raise Exception("Static route (file) conflicts with other routes.")
+
+                    # add to STATIC_PATHS
+                    self.STATIC_PATHS.append({
+                        'path': combined_path,
+                        'is_dir': False,
+                    })
+
+            for path, directory in dirs.items():
+                # check if it conflicts with other routes
+                if path in self.GET_PATHS \
+                        or path in self.POST_PATHS \
+                        or path in self.PATCH_PATHS \
+                        or path in self.PUT_PATHS \
+                        or path in self.DELETE_PATHS:
+                    raise Exception("Static route (directory) conflicts with other routes.")
+                else:
+                    # check if '/' is at the end of `path`
+                    if directory[-1] != '/':
+                        directory += '/'
+
+                    # combine path and directory
+                    combined_path = path + directory
+
+                    # also check if in the STATIC_PATHS
+                    for static_path in self.STATIC_PATHS:
+                        if static_path['path'] == combined_path:
+                            raise Exception("Static route (directory) conflicts with other routes.")
+
+                    # add to STATIC_PATHS
+                    self.STATIC_PATHS.append({
+                        'path': path + directory,
+                        'is_dir': True,
+                    })
+        else:
+            raise Exception("Static route is not an instance of StaticFiles. "
+                            "Please use framework.static_files.StaticFiles."
+                            "We are not supporting other static file classes at the moment.")
+
 
     def add_route(self, method, path, func):
         """
@@ -103,6 +175,11 @@ class HttpRouter:
         return decorator
 
     def delete(self, path):
+        """
+        Decorator for registering DELETE routes.
+        :param path:
+        :return:
+        """
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -112,6 +189,40 @@ class HttpRouter:
             return wrapper
 
         return decorator
+
+    def serve_static_files(self):
+        """
+        Returns all static files. (finds all files in STATIC_PATHS)
+        :return:
+        """
+
+        # check if path exists in STATIC_PATHS's 'path' key
+        files_path = []
+        for static_path in self.STATIC_PATHS:
+            if static_path['is_dir']:
+                # recursively add all files in directory
+                for root, dirs, files in os.walk(static_path['path']):
+                    for file in files:
+                        # absolute system as full path in the system
+                        path = os.path.join(root, file)
+
+                        # remove '.' from path
+                        path = path.replace('./', '')
+
+                        files_path.append(path)
+            else:
+                # absolute path of file in the system
+                files_path.append(static_path['path'])
+
+        # prepare for serving static files
+        for path in files_path:
+            with open(path, 'rb') as f:
+                # read file as binary
+                data = f.read()
+
+                # remove b and ' from data
+                self.SERVED_STATIC_PATHS[path] = data
+
 
     def process(self):
         # all routes are registered to self.PATHS
@@ -125,6 +236,17 @@ class HttpRouter:
         :return:
         """
         return self.GET_PATHS, self.POST_PATHS, self.PATCH_PATHS, self.DELETE_PATHS
+
+    def static_path_exists(self, path):
+        """
+        Check if path exists in registered static routes.
+        :param path:
+        :return:
+        """
+        if path in self.SERVED_STATIC_PATHS:
+            return True, self.SERVED_STATIC_PATHS[path]
+        else:
+            return False, None
 
     def exist(self, path, method):
         """

@@ -120,7 +120,7 @@ class HttpRequestParser:
 
         # parse body by 'Content-Type' header
         if 'Content-Type' in self.headers:
-            if self.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+            if self.headers['Content-Type'] == 'application/y-www-form-urlencoded':
                 # parse body as url encoded
                 body = self._parse_url_encoded(body)
             elif self.headers['Content-Type'] == 'application/json':

@@ -1,10 +1,13 @@
+import os.path
+
 from server.http_server import HttpServer
 from server.request_handler import Response, Request
 from framework.router import HttpRouter
-
+from framework.static_files import StaticFiles
 
 router = HttpRouter()
 
+static = StaticFiles()
 
 example_html = """
 <!DOCTYPE html>
@@ -15,6 +18,10 @@ example_html = """
 </head>
 <body>
     <h1>Hello World!</h1>
+    <img src="/static/img.png" alt="FatihServer">
+    
+    <h2>Example template:</h2>
+    <img src="/static/dir/example.png" alt="FatihServer">
 </body>
 </html>
 """
@@ -31,6 +38,11 @@ def index(request: Request, name: str):
     print(request)
 
     return response
+
+
+static.add_static_dir(directory="static")
+static.add_static_file(path='static', file="favicon.ico")
+router.add_static_route(static)
 
 
 def server_start():

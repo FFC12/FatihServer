@@ -31,21 +31,7 @@ class HttpServer:
         self.server = None
 
         if router is None:
-            # Create a router if not provided
-            # FIXME: It's not good to be dependent on the router in the HttpServer class. (I will fix it later)
             self.router = HttpRouter()
-
-            # Create a default response
-            response = Response(status_code=200, body="Hello World!")
-
-            # Set content type to text/plain
-            response.set_header("Content-Type", "text/plain")
-
-            # Server name `FatihServer`
-            response.set_header("Server", "FatihServer")
-
-            # Add a default route
-            self.router.add_route("/", lambda x: response)
         else:
             self.router = router
 
@@ -63,7 +49,9 @@ class HttpServer:
         Start the server.
         :return:
         """
-        server = ThreadedTCPServer((self.host, self.port), RequestHandler)
+        self.router.serve_static_files()
+        server = ThreadedTCPServer((self.host, self.port), RequestHandler(self.router))
+
         ip, port = server.server_address
         logger.info("🚀 FatihServer has launched at http://{}:{}".format(ip, port))
 

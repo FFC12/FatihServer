@@ -7,7 +7,7 @@ from server.http_server import HttpServer
 case0 = """POST /cgi-bin/process.cgi HTTP/1.1
 User-Agent: Mozilla/4.0 (compatible; MSIE5.01; Windows NT)
 Host: www.website.com
-Content-Type: application/x-www-form-urlencoded
+Content-Type: application/y-www-form-urlencoded
 Content-Length: length
 Accept-Language: en-us
 Accept-Encoding: gzip, deflate

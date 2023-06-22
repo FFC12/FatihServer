@@ -9,6 +9,8 @@ Note: This is a simple web server that I developed for my own website (for fun a
 """
 
 import asyncio
+import json
+import socketserver
 from datetime import datetime
 from socketserver import BaseRequestHandler
 import threading
@@ -17,8 +19,8 @@ from traceback import print_exc
 import inspect
 from typing import get_type_hints
 
-
 from parsers.http_parser import HttpRequestParser
+import mimetypes
 from framework.router import HttpRouter
 
 from loguru import logger
@@ -30,6 +32,7 @@ class HttpResult:
 
     Contains status code, headers and body for many HTTP status codes
     """
+
     @staticmethod
     def r404():
         response = Response(status_code=404, body="Not Found")
@@ -131,6 +134,7 @@ class Response:
                  status_code=200,
                  method=None,
                  headers=None,
+                 content_type=None,
                  body=None):
         """
         Initialize Response class with status code, method, headers and body.
@@ -143,6 +147,8 @@ class Response:
         self.method = method
         self.headers = headers
         self.body = body
+        self.content_type = content_type
+        self.packed = False
 
     def set_cookie(self, key, value):
         """
@@ -170,12 +176,55 @@ class Response:
         """
         if self.headers is None:
             self.headers = {}
-        if key in self.headers:
-            logger.warning(f"Header with key {key} already exists. Overwriting...")
-            self.headers[key] = value
-        self.headers[key] = value
 
-    def __str__(self):
+        if key in self.headers:
+            logger.debug(f"Header with key {key} already exists. Appending value to existing cookie.")
+            self.headers[key] += f"; {value}"
+        else:
+            self.headers[key] = value
+
+    def set_cache_control(self, cache_control):
+        """
+        Set cache control
+        :param cache_control:
+        :return:
+        """
+        self.set_header('Cache-Control', cache_control)
+
+    def set_content_length(self, content_length):
+        """
+        Set content length
+        :param content_length:
+        :return:
+        """
+        self.set_header('Content-Length', content_length)
+
+    def set_content_type(self, content_type):
+        """
+        Set content type
+        :param content_type:
+        :return:
+        """
+        self.content_type = content_type
+        self.set_header('Content-Type', content_type)
+
+    def set_date(self, date):
+        """
+        Set date
+        :param date:
+        :return:
+        """
+        self.set_header('Date', date)
+
+    def set_body(self, body):
+        """
+        Set body
+        :param body:
+        :return:
+        """
+        self.body = body
+
+    def as_bytes(self):
         """
         String representation of Response class *FatihServer*
         :return:
@@ -207,9 +256,35 @@ class Response:
         else:
             method_str = 'Unknown'
 
-        return f"HTTP/1.1 {self.status_code} {method_str}\n" \
-               f"{headers} \r\n\r\n" \
-               f"{self.body}"
+        self.packed = False
+
+        if self.content_type is not None:
+            if self.content_type == 'application/json':
+                return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
+                             f"{headers} \r\n\r\n" \
+                             f"{json.dumps(self.body)}", 'utf-8')
+            elif self.content_type == 'text/html':
+                return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
+                             f"{headers} \r\n\r\n" \
+                             f"{self.body}", 'utf-8')
+            elif self.content_type == 'text/plain':
+                return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
+                             f"{headers} \r\n\r\n" \
+                             f"{self.body}", 'utf-8')
+            elif self.content_type == 'image/png' \
+                    or self.content_type == 'image/jpeg' \
+                    or self.content_type == 'image/gif':
+                # binary
+                pack = bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" f"{headers} \r\n\r\n", 'utf-8')
+                data = self.body
+
+                self.packed = True
+
+                return pack + data
+        else:
+            return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
+                         f"{headers} \r\n\r\n" \
+                         f"{self.body}", 'utf-8')
 
 
 class Session:
@@ -250,21 +325,33 @@ class RequestHandler(BaseRequestHandler):
     Currently, I use socketserver. So I need to use this class to handle requests
     But I will implement my TCP server in the future (I hope so - if I have time)
     """
-    def __init__(self, request, client_address, server):
-        super().__init__(request, client_address, server)
+
+    def __init__(self, router=None):
         self.parser = None
-        self.router = None
+        # get the router from args
+        self.router = router
         self.sessions = None
         self.lock = None
 
-        logger.debug(f"New connection from {client_address}")
+    def __call__(self, request, client_address, server):
+        """
+        Call method for RequestHandler (we need to override this method
+        because we need to pass router to RequestHandler)
+        :param request:
+        :param client_address:
+        :param server:
+        :return:
+        """
+        h = RequestHandler(self.router)
+        socketserver.BaseRequestHandler.__init__(h, request, client_address, server)
 
     def setup(self) -> None:
-        self.router = HttpRouter()
         self.lock = threading.Lock()
 
         # Hashmap for sessions
         self.sessions = {}
+
+        logger.debug(f"New connection from {self.client_address}")
 
     def handle(self):
         # Get data from client
@@ -283,8 +370,8 @@ class RequestHandler(BaseRequestHandler):
             if result['method'] == 'GET' \
                     or result['method'] == 'POST' \
                     or result['method'] == 'PUT' \
-                    or result['method'] == 'DELETE'\
-                    or result['method'] == 'OPTIONS'\
+                    or result['method'] == 'DELETE' \
+                    or result['method'] == 'OPTIONS' \
                     or result['method'] == 'HEAD':
                 result = self._handle_method(result, result['method'])
             else:
@@ -296,10 +383,15 @@ class RequestHandler(BaseRequestHandler):
             result = HttpResult.r405()
 
         cur_thread = threading.current_thread()
-        response = result.__str__().encode('ascii')
-        logger.debug(f"{cur_thread}: {response}")
-        self.request.sendall(response)
 
+        # check result is bytes or not
+        """if result.packed:
+            pack = result
+        else:
+            response = result.__str__()"""
+
+        logger.debug(f"{cur_thread}: {result}")
+        self.request.sendall(result.as_bytes())
 
     def _handle_method(self, result, method):
         """
@@ -360,22 +452,96 @@ class RequestHandler(BaseRequestHandler):
                     # Session id exists, check if it is valid
                     result.set_cookie('session_id', cookies['session_id'])
 
+                # Set SameSite to Lax
+                result.set_cookie('SameSite', 'Lax')
+
                 return result
             else:
                 # Check if session id exists
                 if cookies is None or 'session_id' not in cookies:
                     # Session id does not exist, generate a new one
                     session_id = Session.generate_session_id()
-
-                    # Set session id to cookies
-                    return HttpResult.r200().set_cookie('session_id', session_id)
                 else:
                     # Session id exists, set it from cookies
-                    return HttpResult.r200().set_cookie('session_id', cookies['session_id'])
+                    session_id = cookies['session_id']
+
+                # Create response
+                response = HttpResult.r200()
+
+                # Set session id to cookies
+                response.set_cookie('session_id', session_id)
+
+                # Set SameSite to Lax
+                response.set_cookie('SameSite', 'Lax')
+
+                # Set session id to cookies
+                return response
         else:
-            # Path does not exist, return 404
-            logger.warning(f"Path does not exist - {result['method']} - {path}")
-            return HttpResult.r404()
+            # it would be static file
+
+            # To adapt the path to static path, '/' should be removed
+            path = path[1:]
+
+            # Check if static file exists and get it
+            exists, static_file = self.router.static_path_exists(path)
+
+            logger.debug(f"Static file exists: {exists}")
+            logger.debug(f"Path {path}")
+
+            if exists:
+                # Check if static file exists
+                if static_file is not None:
+                    # Get file extension
+                    file_extension = path.split('.')[-1]
+
+                    # Get content type
+                    content_type = mimetypes.types_map[f".{file_extension}"]
+
+                    # Create response
+                    response = Response(status_code=200)
+
+                    # Set content type
+                    response.set_content_type(content_type)
+
+                    # Set content length
+                    response.set_content_length(len(static_file))
+
+                    # Set cache control
+                    response.set_cache_control('max-age=3600')
+
+                    # Set body
+                    response.set_body(static_file)
+
+                    # Set date
+                    response.set_date(datetime.now())
+
+                    logger.debug(response.__str__())
+
+                    # Check if session id exists
+                    if cookies is None or 'session_id' not in cookies:
+                        # Session id does not exist, generate a new one
+                        session_id = Session.generate_session_id()
+                    else:
+                        # Session id exists, set it from cookies
+                        session_id = cookies['session_id']
+
+                    # set session id to cookies
+                    response.set_cookie('session_id', session_id)
+
+                    # Set SameSite to Lax
+                    response.set_cookie('SameSite', 'Lax')
+
+                    # Return response
+                    return response
+                else:
+                    # Static file does not exist, return 404
+                    logger.warning(f"Static file does not exist - {result['method']} - {path}")
+                    logger.error("Unexpected behaviour")
+                    return HttpResult.r404()
+
+        # Path does not exist, return 404
+        logger.warning(f"Path does not exist - {result['method']} - {path}")
+        return HttpResult.r404()
 
     def _handle_func_args(self, func, result):
         """

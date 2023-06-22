@@ -118,6 +118,7 @@ def index(request: Request, name: str):
 
 # Add a static file route
 static.add_static_route("/static", "static")
+router.add_route(static)
 
 # Start the server
 def server_start():
