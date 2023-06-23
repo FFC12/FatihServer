@@ -129,9 +129,9 @@ class Response:
     """
     Response class for FatihServer
     """
-
     def __init__(self,
                  status_code=200,
+                 session=None,
                  method=None,
                  headers=None,
                  content_type=None,
@@ -148,7 +148,12 @@ class Response:
         self.headers = headers
         self.body = body
         self.content_type = content_type
-        self.packed = False
+
+        if session is None:
+            self.session = Session()
+
+        self.set_session(session)
+
 
     def set_cookie(self, key, value):
         """
@@ -159,13 +164,29 @@ class Response:
         """
         self.set_header('Set-Cookie', f"{key}={value}")
 
-    def set_session_id(self, session_id):
+    def _set_session_id(self, session_id):
         """
         Set session id
         :param session_id:
         :return:
         """
         self.set_cookie('session_id', session_id)
+        self.set_cookie('SameSite', 'Lax')
+
+
+    def set_session(self, session):
+        """
+        Set session
+        :param session:
+        :return:
+        """
+        self.session = session
+
+        if session is not None:
+            self._set_session_id(session.session_id)
+        else:
+            logger.warning("Session is None. Session id will not be set.")
+
 
     def set_header(self, key, value):
         """
@@ -256,8 +277,6 @@ class Response:
         else:
             method_str = 'Unknown'
 
-        self.packed = False
-
         if self.content_type is not None:
             if self.content_type == 'application/json':
                 return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
@@ -278,8 +297,6 @@ class Response:
                 pack = bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" f"{headers} \r\n\r\n", 'utf-8')
                 data = self.body
 
-                self.packed = True
-
                 return pack + data
         else:
             return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
@@ -288,20 +305,43 @@ class Response:
 
 
 class Session:
-    session_id = None
+    ACTIVE = {}
 
-    def __init__(self, session_id=None):
-        if session_id is None:
+    def __init__(self, session_id=None, data=None, created_at=None):
+        """
+        Session class
+        :param session_id:
+        :param data:
+        :param created_at:
+        """
+        if session_id is not None:
+            self.session_id = session_id
+        else:
             # Generate session id
             self.session_id = Session.generate_session_id()
-        else:
-            self.session_id = session_id
+            Session.ACTIVE[self.session_id] = {
+                'session_id': self.session_id,
+                'data': {} if data is None else data,
+                'created_at': datetime.now() if created_at is None else created_at
+            }
 
     def __repr__(self):
         return f"{self.session_id}"
 
     def __str__(self):
         return f"{self.session_id}"
+
+    @staticmethod
+    def check_session_id_is_valid(session_id):
+        """
+        Check if session id is valid
+        :param session_id:
+        :return:
+        """
+        if session_id in Session.ACTIVE:
+            return True
+        else:
+            return False
 
     @staticmethod
     def generate_session_id():
@@ -330,7 +370,6 @@ class RequestHandler(BaseRequestHandler):
         self.parser = None
         # get the router from args
         self.router = router
-        self.sessions = None
         self.lock = None
 
     def __call__(self, request, client_address, server):
@@ -348,9 +387,6 @@ class RequestHandler(BaseRequestHandler):
     def setup(self) -> None:
         self.lock = threading.Lock()
 
-        # Hashmap for sessions
-        self.sessions = {}
-
         logger.debug(f"New connection from {self.client_address}")
 
     def handle(self):
@@ -361,8 +397,12 @@ class RequestHandler(BaseRequestHandler):
         # FIXME: Make it efficient (instance for each request is not efficient)
         http_parser = HttpRequestParser()
 
-        # Parse data
-        result = http_parser.parse(data)
+        try:
+            # Parse data
+            result = http_parser.parse(data)
+        except Exception as e:
+            logger.error(e)
+            result = HttpResult.r400()
 
         # Check if method is supported (GET, POST, PUT, DELETE, OPTIONS, HEAD)
         # Still not implemented all of them (not standardized responses)
@@ -383,14 +423,7 @@ class RequestHandler(BaseRequestHandler):
             result = HttpResult.r405()
 
         cur_thread = threading.current_thread()
-
-        # check result is bytes or not
-        """if result.packed:
-            pack = result
-        else:
-            response = result.__str__()"""
-
-        logger.debug(f"{cur_thread}: {result}")
+        logger.debug(f"{cur_thread}: {result.headers} - {result.body}")
         self.request.sendall(result.as_bytes())
 
     def _handle_method(self, result, method):
@@ -435,44 +468,34 @@ class RequestHandler(BaseRequestHandler):
 
             if isinstance(result, Response):
                 if cookies is None or 'session_id' not in cookies:
-                    # Session id does not exist, generate a new one
-                    session_id = Session.generate_session_id()
-
-                    # Keep the data of the client
-                    self.sessions[session_id] = {
-                        'session_data': {},
-                        'date': datetime.now(),
-                        'ip': self.client_address[0],
-                        'user_agent': user_agent if user_agent is not None else 'Unknown'
-                    }
-
                     # Add session id to cookies
-                    result.set_cookie('session_id', session_id)
+                    result.set_session(Session())
                 else:
-                    # Session id exists, check if it is valid
-                    result.set_cookie('session_id', cookies['session_id'])
+                    # Check session id is valid
+                    session_id = cookies['session_id']
 
-                # Set SameSite to Lax
-                result.set_cookie('SameSite', 'Lax')
+                    if Session.check_session_id_is_valid(session_id):
+                        # Set session id to cookies
+                        result.set_session(Session(session_id=session_id))
+                    else:
+                        # Add session id to cookies
+                        result.set_session(Session())
 
                 return result
             else:
                 # Check if session id exists
-                if cookies is None or 'session_id' not in cookies:
-                    # Session id does not exist, generate a new one
-                    session_id = Session.generate_session_id()
-                else:
+                if cookies is not None and 'session_id' in cookies:
                     # Session id exists, set it from cookies
                     session_id = cookies['session_id']
 
-                # Create response
-                response = HttpResult.r200()
+                    # Create response
+                    response = Response(status_code=200)
 
-                # Set session id to cookies
-                response.set_cookie('session_id', session_id)
-
-                # Set SameSite to Lax
-                response.set_cookie('SameSite', 'Lax')
+                    # Set session id to cookies
+                    response.set_session(Session(session_id=session_id))
+                else:
+                    # Create response
+                    response = HttpResult.r200()
 
                 # Set session id to cookies
                 return response
@@ -515,21 +538,21 @@ class RequestHandler(BaseRequestHandler):
                     # Set date
                     response.set_date(datetime.now())
 
-                    logger.debug(response.__str__())
-
                     # Check if session id exists
                     if cookies is None or 'session_id' not in cookies:
-                        # Session id does not exist, generate a new one
-                        session_id = Session.generate_session_id()
+                        # Set session id to cookies
+                        response.set_session(Session())
                     else:
                         # Session id exists, set it from cookies
                         session_id = cookies['session_id']
 
-                    # set session id to cookies
-                    response.set_cookie('session_id', session_id)
-
-                    # Set SameSite to Lax
-                    response.set_cookie('SameSite', 'Lax')
+                        # Check session id is valid
+                        if Session.check_session_id_is_valid(session_id):
+                            # Set session id to cookies
+                            response.set_session(Session(session_id=session_id))
+                        else:
+                            # Add session id to cookies
+                            response.set_session(Session())
 
                     # Return response
                     return response

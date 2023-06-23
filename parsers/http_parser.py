@@ -27,9 +27,19 @@ class HttpRequestParser:
         :param lines:
         :return:
         """
-        method = lines[0].split(' ')[0]
-        path = lines[0].split(' ')[1]
-        version = lines[0].split(' ')[2]
+        parts = lines[0].split(' ')
+
+        if len(parts) == 3:
+            method = lines[0].split(' ')[0]
+            path = lines[0].split(' ')[1]
+            version = lines[0].split(' ')[2]
+        else:
+            if len(parts) < 2:
+                raise Exception('Invalid request')
+            else:
+                method = lines[0].split(' ')[0]
+                path = lines[0].split(' ')[1]
+                version = ''
 
         # trim ' ' from method, path and version
         method = method.strip()

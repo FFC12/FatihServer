@@ -59,7 +59,7 @@ class HttpRouter:
                         or path in self.PATCH_PATHS \
                         or path in self.PUT_PATHS \
                         or path in self.DELETE_PATHS:
-                    raise Exception("Static route (file) conflicts with other routes.")
+                    raise Exception(f"Static route (file) conflicts with other routes: {path}")
                 else:
                     # combine path and file
                     combined_path = path + file
@@ -67,7 +67,7 @@ class HttpRouter:
                     # also check if in the STATIC_PATHS
                     for static_path in self.STATIC_PATHS:
                         if static_path['path'] == combined_path:
-                            raise Exception("Static route (file) conflicts with other routes.")
+                            raise Exception(f"Static route (file) conflicts with other routes: {path}")
 
                     # add to STATIC_PATHS
                     self.STATIC_PATHS.append({

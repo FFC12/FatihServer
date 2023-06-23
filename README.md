@@ -16,33 +16,40 @@ FatihServer is a Web Framework that I developed for my personal website. I built
 ### Features
 - [x] HttpServer
 - [x] Routing
-- [ ] Query Parameters (Not yet)
 - [x] Static Files
 - [x] Templates
 - [x] Session (HttpSession)
 - [x] Cookies
 - [x] Request (simple)
 - [x] Response (class based)
-- [ ] Middleware (Not yet)
-- [ ] Database (Not yet)
-- [ ] Authentication (Not yet)
-- [ ] CORS (Not yet)
-- [ ] WebSockets (Not yet)
-- [ ] SSL (Not yet)
+
+
+### TODOs
+- [ ] Add more tests
+- [ ] Query Parameters (very soon)
+- [ ] Uvicorn support
+- [ ] Middleware Layer
+- [ ] Database (Middleware, ORM, etc.)
+- [ ] Authentication (JWT, OAuth, etc.)
+- [ ] CORS (Middleware)
+- [ ] WebSockets (Middleware)
+- [ ] SSL (Middleware)
+- [ ] Make it async (change the HttpServer to async?)
+- [ ] Package it and upload to PyPI
 
 ### Usage
 Here is a simple example of how to use the HttpServer.
 ```python
-from server.http_server import HttpServer
+from framework.app import App
 
-server = HttpServer()
-server.start()
+app = App()
+app.run()
 ```
 
 ### Routing
 Routing is like Flask and FastAPI (I inspired a lot). You can use it like this:
 ```python
-from server.http_server import HttpServer
+from framework.app import App
 from server.request_handler import Response, Request
 from framework.router import HttpRouter
 
@@ -73,25 +80,18 @@ def index(request: Request, name: str):
     response.set_header("Connection", "close")
     response.set_header("Content-Length", len(example_html))
 
-    print(request)
-
     return response
-
-
-# Start the server
-def server_start():
-    server = HttpServer(router=router, host="localhost", port=8080)
-    server.start()
 
 # Run the server
 if __name__ == "__main__":
-    server_start()
+    app = App(router=router, host="localhost", port=8080)
+    app.run()
 ```
 
 ### Static Files
 You can serve static files with FatihServer. You can use it like this:
 ```python
-from server.http_server import HttpServer
+from framework.app import App
 from server.request_handler import Response, Request
 from framework.router import HttpRouter
 from framework.static import StaticFiles
@@ -102,80 +102,87 @@ router = HttpRouter()
 # Create a static file handler
 static = StaticFiles()
 
+# Example html
+example_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FatihServer</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+    <img src="/static/example.jpg" alt="FatihServer">
+</body>
+</html>
+"""
+
 # Add a route to the router
 @router.get("/index")
-def index(request: Request, name: str):
+def index(request: Request):
     response = Response(status_code=200, body=example_html)
     response.set_header("Content-Type", "text/html")
     response.set_header("Server", "FatihServer")
     response.set_header("Connection", "close")
     response.set_header("Content-Length", len(example_html))
 
-    print(request)
-
     return response
 
 
 # Add a static file route
-static.add_static_route("/static", "static")
-router.add_route(static)
-
-# Start the server
-def server_start():
-    server = HttpServer(router=router, host="localhost", port=8080)
-    server.start()
+static.add_static_dir(directory="static")
+router.add_static_route(static)
 
 # Run the server
 if __name__ == "__main__":
-    server_start()
+    app = App(router=router, host="localhost", port=8080)
+    app.run()
 ```
 
 ### Templates
 You can use templates with FatihServer. You can use it like this:
 ```python
-from server.http_server import HttpServer
 from server.request_handler import Response, Request
 from framework.router import HttpRouter
-from framework.static import StaticFiles
-from framework.templates import Templates
+from framework.static_files import StaticFiles
+from framework.templates import Templates, TemplateResponse
 
-# Create a router
+from framework.app import App
+
 router = HttpRouter()
 
-# Create a static file handler
 static = StaticFiles()
-
-# Create a template handler
 templates = Templates()
 
-# Add a route to the router
+example_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FatihServer</title>
+</head>
+<body>
+    <h1>Hello {{ name }}</h1>
+    <img src="/static/example.jpg" alt="FatihServer">
+</body>
+</html>
+"""
+
+templates.add_template_as_text('index', example_html)
+
+
 @router.get("/index")
-def index(request: Request, name: str):
-    response = Response(status_code=200, body=example_html)
-    response.set_header("Content-Type", "text/html")
-    response.set_header("Server", "FatihServer")
-    response.set_header("Connection", "close")
-    response.set_header("Content-Length", len(example_html))
-
-    print(request)
-
-    return response
+def index(request: Request):
+    return TemplateResponse(templates, 'index', {'name': 'Fatih'})
 
 
-# Add a static file route
-static.add_static_route("/static", "static")
+static.add_static_dir(directory="static")
+router.add_static_route(static)
 
-# Add a template route
-templates.add_template_route("/templates", "templates")
 
-# Start the server
-def server_start():
-    server = HttpServer(router=router, host="localhost", port=8080)
-    server.start()
-
-# Run the server
 if __name__ == "__main__":
-    server_start()
+    app = App(router=router, host="localhost", port=8080)
+    app.run()
 ```
 
 ### Conclusion
