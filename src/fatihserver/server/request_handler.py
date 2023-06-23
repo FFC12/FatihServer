@@ -19,9 +19,8 @@ from traceback import print_exc
 import inspect
 from typing import get_type_hints
 
-from parsers.http_parser import HttpRequestParser
+from src.fatihserver.parsers.http_parser import HttpRequestParser
 import mimetypes
-from framework.router import HttpRouter
 
 from loguru import logger
 

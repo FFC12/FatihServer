@@ -1,9 +1,9 @@
 import threading
 
-from server.tcp import ThreadedTCPServer
-from server.request_handler import RequestHandler, Response
+from src.fatihserver.server.tcp import ThreadedTCPServer
+from src.fatihserver.server.request_handler import RequestHandler
 
-from framework.router import HttpRouter
+from src.fatihserver.framework.router import HttpRouter
 
 from loguru import logger
 

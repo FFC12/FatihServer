@@ -3,7 +3,7 @@ import os
 import chevron
 from loguru import logger
 
-from server.request_handler import Response
+from src.fatihserver.server.request_handler import Response
 
 
 

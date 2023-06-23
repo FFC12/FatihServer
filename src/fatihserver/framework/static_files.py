@@ -21,7 +21,7 @@ class StaticFiles:
 
         # check if `path` is empty, means current directory
         if path == '':
-            path = './'
+            path = '/'
 
         # check if '/' is at the end of `path`
         if path[-1] != '/':
@@ -39,7 +39,7 @@ class StaticFiles:
         """
         # check if `path` is empty, means current directory
         if path == '':
-            path = './'
+            path = '/'
 
         # check if '/' is at the end of `path`
         if path[-1] != '/':

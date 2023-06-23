@@ -1,6 +1,6 @@
 import json
 import unittest
-from parsers.http_parser import HttpRequestParser
+from src.fatihserver.parsers.http_parser import HttpRequestParser
 
 case0 = """POST https://website.com/cgi-bin/process.cgi HTTP/1.1
 User-Agent: Mozilla/4.0 (compatible; MSIE5.01; Windows NT)

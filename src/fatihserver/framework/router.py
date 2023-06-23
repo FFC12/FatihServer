@@ -2,8 +2,8 @@ import functools
 import os
 import threading
 
-from framework import static_files
-from framework.static_files import StaticFiles
+from src.fatihserver.framework import static_files
+from src.fatihserver.framework.static_files import StaticFiles
 
 
 class HttpRouter:

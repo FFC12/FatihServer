@@ -1,9 +1,9 @@
-from server.request_handler import Response, Request
-from framework.router import HttpRouter
-from framework.static_files import StaticFiles
-from framework.templates import Templates, TemplateResponse
+from src.fatihserver.server.request_handler import Request
+from src.fatihserver.framework.router import HttpRouter
+from src.fatihserver.framework.static_files import StaticFiles
+from src.fatihserver.framework.templates import Templates, TemplateResponse
 
-from framework.app import App
+from src.fatihserver.framework.app import App
 
 router = HttpRouter()
 
