@@ -1,6 +1,6 @@
 import socket
 import unittest
-from src.fatihserver.server.http_server import HttpServer
+from fatihserver.server.http_server import HttpServer
 
 # TODO: Test is not working yet
 

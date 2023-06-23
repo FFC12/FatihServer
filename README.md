@@ -41,7 +41,7 @@ FatihServer is a Web Framework that I developed for my personal website. I built
 Here is a simple example of how to use the HttpServer.
 
 ```python
-from src.fatihserver.framework import App
+from fatihserver.framework import App
 
 app = App()
 app.run()
@@ -51,9 +51,9 @@ app.run()
 Routing is like Flask and FastAPI (I inspired a lot). You can use it like this:
 
 ```python
-from src.fatihserver.framework import App
-from src.fatihserver.server.request_handler import Response, Request
-from src.fatihserver.framework import HttpRouter
+from fatihserver.framework import App
+from fatihserver.server.request_handler import Response, Request
+from fatihserver.framework import HttpRouter
 
 # Create a router
 router = HttpRouter()
@@ -95,10 +95,10 @@ if __name__ == "__main__":
 You can serve static files with FatihServer. You can use it like this:
 
 ```python
-from src.fatihserver.framework import App
-from src.fatihserver.server.request_handler import Response, Request
-from src.fatihserver.framework import HttpRouter
-from src.fatihserver.framework import StaticFiles
+from fatihserver.framework import App
+from fatihserver.server.request_handler import Response, Request
+from fatihserver.framework import HttpRouter
+from fatihserver.framework import StaticFiles
 
 # Create a router
 router = HttpRouter()
@@ -148,12 +148,12 @@ if __name__ == "__main__":
 You can use templates with FatihServer. You can use it like this:
 
 ```python
-from src.fatihserver.server.request_handler import Response, Request
-from src.fatihserver.framework import HttpRouter
-from src.fatihserver.framework.static_files import StaticFiles
-from src.fatihserver.framework import Templates, TemplateResponse
+from fatihserver.server.request_handler import Response, Request
+from fatihserver.framework import HttpRouter
+from fatihserver.framework.static_files import StaticFiles
+from fatihserver.framework import Templates, TemplateResponse
 
-from src.fatihserver.framework import App
+from fatihserver.framework import App
 
 router = HttpRouter()
 

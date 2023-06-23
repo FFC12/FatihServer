@@ -1,4 +1,4 @@
-from src.fatihserver.server.http_server import HttpServer
+from fatihserver.server.http_server import HttpServer
 
 from loguru import logger
 

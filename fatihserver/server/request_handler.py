@@ -19,7 +19,7 @@ from traceback import print_exc
 import inspect
 from typing import get_type_hints
 
-from src.fatihserver.parsers.http_parser import HttpRequestParser
+from fatihserver.parsers.http_parser import HttpRequestParser
 import mimetypes
 
 from loguru import logger
