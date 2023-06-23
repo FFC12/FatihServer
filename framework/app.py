@@ -8,6 +8,9 @@ from loguru import logger
 class App:
     """
     App class for FatihServer
+
+    TODO:
+        - App startup and shutdown hooks (router)
     """
 
     def __init__(self, app_name=None, router=None, host="localhost", port=8080):
@@ -17,7 +20,6 @@ class App:
         """
         self.app_name = app_name
         self.server = HttpServer(router=router, host=host, port=port)
-
 
     def run(self):
         """

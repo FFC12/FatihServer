@@ -17,8 +17,10 @@ class HttpRequestParser:
 
     def __init__(self):
         self.headers = {}
-        self.request_data = None
+        self.request_method = None
         self.body = None
+        self.raw_body = None
+        self.query_params = None
 
     def _parse_method(self, lines):
         """
@@ -45,6 +47,21 @@ class HttpRequestParser:
         method = method.strip()
         version = version.strip()
 
+        # query string '?'
+        if '?' in path:
+            # split path by '?'
+            path, query_string = path.split('?')
+
+            # parse query string
+            query_string = query_string.split('&')
+
+            # create a dictionary
+            query_string_dict = {}
+            for query in query_string:
+                query_string_dict[query.split('=')[0]] = query.split('=')[1]
+
+            self.query_params = query_string_dict
+
         # split path by '/' and trim ' ' from each part
         path = path.strip().split('/')
 
@@ -64,7 +81,7 @@ class HttpRequestParser:
         # pop the first line
         lines.pop(0)
 
-        self.request_data = {
+        self.request_method = {
             'method': method,
             'path': path,
             'version': version
@@ -128,38 +145,69 @@ class HttpRequestParser:
         else:
             body = '\r\n'.join(lines)
 
+        # save raw body
+        self.raw_body = body
+
         # parse body by 'Content-Type' header
         if 'Content-Type' in self.headers:
-            if self.headers['Content-Type'] == 'application/y-www-form-urlencoded':
-                # parse body as url encoded
-                body = self._parse_url_encoded(body)
-            elif self.headers['Content-Type'] == 'application/json':
-                # parse body as json
-                body = self._parse_json(body)
-            elif self.headers['Content-Type'] == 'text/plain':
-                # parse body as text
-                body = self._parse_text(body)
-            elif 'multipart/form-data' in self.headers['Content-Type']:
-                # parse body as multipart
-                body = self._parse_text(body)
+            try:
+                if self.headers['Content-Type'] == 'application/y-www-form-urlencoded':
+                    # parse body as url encoded
+                    body = {
+                        "type": "url_encoded",
+                        "data": self._parse_url_encoded(body)
+                    }
+                elif self.headers['Content-Type'] == 'application/json':
+                    # parse body as json
+                    body = {
+                        "type": "json",
+                        "data": self._parse_json(body)
+                    }
+                elif self.headers['Content-Type'] == 'text/plain':
+                    # parse body as text
+                    body = {
+                        "type": "text",
+                        "data": self._parse_text(body)
+                    }
+                elif 'multipart/form-data' in self.headers['Content-Type']:
+                    # parse body as multipart
+                    body = {
+                        "type": "multipart",
+                        "data": self._parse_text(body)
+                    }
 
-                logger.warning('Multipart form data is not supported yet')
-                #boundary = self.headers['Content-Type'].split(';')[1].split('=')[1]
-                #body = self._parse_multipart(body, boundary)
-            else:
+                    logger.warning('Multipart form data is not supported yet')
+                    #boundary = self.headers['Content-Type'].split(';')[1].split('=')[1]
+                    #body = self._parse_multipart(body, boundary)
+                else:
+                    # parse body as text
+                    body = {
+                        "type": "text",
+                        "data": self._parse_text(body)
+                    }
+            except Exception as e:
+                logger.error(e)
                 # parse body as text
-                body = self._parse_text(body)
+                body = {
+                        "type": "text",
+                        "data": self._parse_text(body)
+                }
         else:
             # parse body as text
-            body = self._parse_text(body)
+            body = {
+                "type": "text",
+                "data": self._parse_text(body)
+            }
 
         self.body = body
         return {
-            'method': self.request_data['method'],
-            'path': self.request_data['path'],
-            'version': self.request_data['version'],
+            'method': self.request_method['method'],
+            'path': self.request_method['path'],
+            'version': self.request_method['version'],
             'headers': self.headers,
-            'body': self.body
+            'body': self.body,
+            'raw_body': self.raw_body,
+            'query_params': self.query_params
         }
 
     def _parse_url_encoded(self, body):
@@ -204,7 +252,7 @@ class HttpRequestParser:
 
     def parse(self, data):
         # split data into lines
-        # if you are using windows, use '\r\n' instead of '\n'
+        # if it's windows, use '\r\n' instead of '\n'
         if os.name == 'posix':
             lines = data.split('\n')
         else:
@@ -224,7 +272,6 @@ class HttpRequestParser:
         body.pop(0)
         body.pop(len(body) - 1)
 
-        print(body)
 
         # parse body
         result = {}

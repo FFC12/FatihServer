@@ -19,7 +19,6 @@ example_html = """
 </head>
 <body>
     <h1>Hello {{ name }}</h1>
-    <img src="/static/example.jpg" alt="FatihServer">
 </body>
 </html>
 """
@@ -29,11 +28,12 @@ templates.add_template_as_text('index', example_html)
 
 @router.get("/index")
 def index(request: Request):
-    return TemplateResponse(templates, 'index', {'name': 'Fatih'})
+    return TemplateResponse(templates, 'index', request.query_params)
 
 
-static.add_static_dir(directory="static")
-router.add_static_route(static)
+@router.post("/index")
+def index_post(request: Request):
+    request_body = request['body']
 
 
 if __name__ == "__main__":

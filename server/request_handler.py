@@ -122,13 +122,28 @@ class Request:
     """
     Request class for FatihServer
     """
-    pass
+
+    def __init__(self, method=None, path=None, raw_body=None, headers=None, body=None, query_params=None):
+        """
+        Initialize Request class with method, path, headers, body and query parameters.
+        :param method:
+        :param path:
+        :param headers:
+        :param body:
+        """
+        self.method = method
+        self.path = path
+        self.headers = headers
+        self.body = body
+        self.raw_body = raw_body
+        self.query_params = query_params
 
 
 class Response:
     """
     Response class for FatihServer
     """
+
     def __init__(self,
                  status_code=200,
                  session=None,
@@ -154,7 +169,6 @@ class Response:
 
         self.set_session(session)
 
-
     def set_cookie(self, key, value):
         """
         Set cookie
@@ -173,7 +187,6 @@ class Response:
         self.set_cookie('session_id', session_id)
         self.set_cookie('SameSite', 'Lax')
 
-
     def set_session(self, session):
         """
         Set session
@@ -186,7 +199,6 @@ class Response:
             self._set_session_id(session.session_id)
         else:
             logger.warning("Session is None. Session id will not be set.")
-
 
     def set_header(self, key, value):
         """
@@ -332,6 +344,18 @@ class Session:
         return f"{self.session_id}"
 
     @staticmethod
+    def get_session(session_id):
+        """
+        Get session
+        :param session_id:
+        :return:
+        """
+        if session_id in Session.ACTIVE:
+            return Session.ACTIVE[session_id]
+        else:
+            return None
+
+    @staticmethod
     def check_session_id_is_valid(session_id):
         """
         Check if session id is valid
@@ -402,18 +426,36 @@ class RequestHandler(BaseRequestHandler):
             result = http_parser.parse(data)
         except Exception as e:
             logger.error(e)
+
+            print_exc()
+
+            # 400 Bad Request (if we cannot parse the request)
             result = HttpResult.r400()
+
+            # Send data to client
+            return self.request.sendall(result.as_bytes())
+
+        # Get method
+        method = result['method']
 
         # Check if method is supported (GET, POST, PUT, DELETE, OPTIONS, HEAD)
         # Still not implemented all of them (not standardized responses)
         try:
-            if result['method'] == 'GET' \
-                    or result['method'] == 'POST' \
-                    or result['method'] == 'PUT' \
-                    or result['method'] == 'DELETE' \
-                    or result['method'] == 'OPTIONS' \
-                    or result['method'] == 'HEAD':
-                result = self._handle_method(result, result['method'])
+            if method == 'GET' \
+                    or method == 'POST' \
+                    or method == 'PUT' \
+                    or method == 'DELETE' \
+                    or method == 'OPTIONS' \
+                    or method == 'HEAD':
+
+                if (method == 'GET' or method == 'OPTIONS') \
+                        and (result['body'] is not None or result['content_length'] > 0):
+                    # GET and OPTIONS should not have body (RFC 7231)
+                    # https://www.rfc-editor.org/rfc/rfc7231#section-4.3.1
+                    result = HttpResult.r400()
+                    return self.request.sendall(result.as_bytes())
+
+                result = self._handle_method(result)
             else:
                 logger.warning(f"Method not supported - {result['method']} - {result['path']}")
                 result = HttpResult.r400()
@@ -426,7 +468,7 @@ class RequestHandler(BaseRequestHandler):
         logger.debug(f"{cur_thread}: {result.headers} - {result.body}")
         self.request.sendall(result.as_bytes())
 
-    def _handle_method(self, result, method):
+    def _handle_method(self, result):
         """
         Handle GET request
 
@@ -579,6 +621,8 @@ class RequestHandler(BaseRequestHandler):
         except KeyError:
             cookies = None
 
+        method = result['method']
+
         # Create local thread for arguments
         local = threading.local()
         local.args = []
@@ -600,17 +644,21 @@ class RequestHandler(BaseRequestHandler):
                 # check the name of type of parameter
                 if param_type == Request:
                     # Request type, add the request
-                    local.args.append(result)
+                    request = Request(method=result['method'],
+                                      path=result['path'],
+                                      headers=result['headers'],
+                                      raw_body=result['raw_body'],
+                                      body=result['body'],
+                                      query_params=result['query_params'])
+
+                    local.args.append(request)
                 elif param_type == Session:
                     if cookies is not None and 'session_id' in cookies:
                         # Session id exists, get the session
                         session_id = cookies['session_id']
 
-                        # Debug the session data
-                        logger.debug(f"User data - {self.sessions[session_id]}")
-
                         # Add the session to the arguments
-                        local.args.append(self.sessions[session_id])
+                        local.args.append(Session.get_session(session_id))
                 else:
                     logger.warning(f"Unknown parameter type - {param_name} - {param_type}")
                     logger.warning(f"Probably we don't support this type yet but we need to add as argument")
