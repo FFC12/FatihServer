@@ -11,6 +11,7 @@ Note: This is a simple web server that I developed for my own website (for fun a
 import asyncio
 import json
 import socketserver
+import sys
 from datetime import datetime
 from socketserver import BaseRequestHandler
 import threading
@@ -162,11 +163,12 @@ class Response:
         self.headers = headers
         self.body = body
         self.content_type = content_type
+        self.session = session
 
-        if session is None:
+        if self.session is None:
             self.session = Session()
 
-        self.set_session(session)
+        self.set_session(self.session)
 
     def set_cookie(self, key, value):
         """
@@ -529,8 +531,15 @@ class RequestHandler(BaseRequestHandler):
                     # Session id exists, set it from cookies
                     session_id = cookies['session_id']
 
-                    # Create response
-                    response = Response(status_code=200)
+                    # Create response. result is not 'Response' instance
+                    if not isinstance(result, str):
+                        result = str(result)
+
+                    # we create a respone for raw-text
+                    response = Response(status_code=200, body=result)
+
+                    # Content-Type is Text-plain
+                    response.set_header('Content-Type', 'text/plain')
 
                     # Set session id to cookies
                     response.set_session(Session(session_id=session_id))
@@ -638,7 +647,15 @@ class RequestHandler(BaseRequestHandler):
             # TODO: Query parameters will be added
             for param_name, param in params.items():
                 # get type of parameter
-                param_type = type_hints[param_name]
+                try:
+                    param_type = type_hints[param_name]
+                except KeyError:
+                    param_names = func.__code__.co_varnames
+                    logger.error(f'The parameter `{param_names}` does not have any type hints. '
+                                 f'It must have type hints; otherwise, the arguments of the route '
+                                 f'function will be set as `None`.')
+                    local.args.append(None)
+                    continue
 
                 # check the name of type of parameter
                 if param_type == Request:
