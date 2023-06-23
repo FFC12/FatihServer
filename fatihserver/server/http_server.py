@@ -52,6 +52,8 @@ class HttpServer:
         self.router.serve_static_files()
         server = ThreadedTCPServer((self.host, self.port), RequestHandler(self.router))
 
+        server.allow_reuse_port = True
+
         ip, port = server.server_address
         logger.info("🚀 FatihServer has launched at http://{}:{}".format(ip, port))
 

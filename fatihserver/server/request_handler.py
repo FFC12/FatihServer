@@ -305,12 +305,17 @@ class Response:
                              f"{self.body}", 'utf-8')
             elif self.content_type == 'image/png' \
                     or self.content_type == 'image/jpeg' \
+                    or self.content_type == 'image/jpg' \
                     or self.content_type == 'image/gif':
                 # binary
                 pack = bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" f"{headers} \r\n\r\n", 'utf-8')
                 data = self.body
 
                 return pack + data
+            else:
+                return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
+                             f"{headers} \r\n\r\n" \
+                             f"{self.body}", 'utf-8')
         else:
             return bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" \
                          f"{headers} \r\n\r\n" \
@@ -567,14 +572,16 @@ class RequestHandler(BaseRequestHandler):
                     # Get file extension
                     file_extension = path.split('.')[-1]
 
-                    # Get content type
-                    content_type = mimetypes.types_map[f".{file_extension}"]
-
                     # Create response
                     response = Response(status_code=200)
 
-                    # Set content type
-                    response.set_content_type(content_type)
+                    # check if it's a mime-type
+                    if f'.{file_extension}' in mimetypes.types_map:
+                        # Get content type
+                        content_type = mimetypes.types_map[f".{file_extension}"]
+
+                        # Set content type
+                        response.set_content_type(content_type)
 
                     # Set content length
                     response.set_content_length(len(static_file))
@@ -651,7 +658,7 @@ class RequestHandler(BaseRequestHandler):
                     param_type = type_hints[param_name]
                 except KeyError:
                     param_names = func.__code__.co_varnames
-                    logger.error(f'The parameter `{param_names}` does not have any type hints. '
+                    logger.debug(f'The parameter `{param_names}` does not have any type hints. '
                                  f'It must have type hints; otherwise, the arguments of the route '
                                  f'function will be set as `None`.')
                     local.args.append(None)

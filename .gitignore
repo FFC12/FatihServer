@@ -4,3 +4,6 @@ venv
 *.pyo
 *.pyd
 src/*.egg-info
+tests/assets/**/*
+tests/server_test2.py
+test/index.html

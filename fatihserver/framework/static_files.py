@@ -19,13 +19,10 @@ class StaticFiles:
             # TODO: Maybe instead of raising an exception, just log it?
             raise Exception("Directory does not exist.")
 
-        # check if `path` is empty, means current directory
-        if path == '':
-            path = '/'
-
         # check if '/' is at the end of `path`
-        if path[-1] != '/':
-            path += '/'
+        if path != '':
+            if path[-1] != '/':
+                path += '/'
 
         self.static_dir[path] = directory
 

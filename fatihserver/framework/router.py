@@ -216,17 +216,38 @@ class HttpRouter:
 
         # prepare for serving static files
         for path in files_path:
-            with open(path, 'rb') as f:
-                # read file as binary
-                data = f.read()
+            # check if it needs to be read as binary
+            if path.endswith('.css') or path.endswith('.js') or path.endswith('.html'):
+                # read as binary
+                with open(path, 'r', encoding='utf-8') as f:
+                    # read file as binary
+                    data = f.read()
 
-                # remove b and ' from data
-                self.SERVED_STATIC_PATHS[path] = data
+                    # Add to Served Static Paths
+                    self.SERVED_STATIC_PATHS[path] = data
+            else:
+                # try reading as utf-8 first
+                # if it fails, read as binary (because it might be an image)
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        # read file as binary
+                        data = f.read()
+
+                        # Add to Served Static Paths
+                        self.SERVED_STATIC_PATHS[path] = data
+                except UnicodeDecodeError:
+                    with open(path, 'rb') as f:
+                        # read file as binary
+                        data = f.read()
+
+                        # Add to Served Static Paths
+                        self.SERVED_STATIC_PATHS[path] = data
 
 
     def process(self):
         # all routes are registered to self.PATHS
         print(self.GET_PATHS.items())
+
         for path, func in self.GET_PATHS.items():
             func()
 
