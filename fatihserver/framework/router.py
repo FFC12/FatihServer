@@ -225,6 +225,15 @@ class HttpRouter:
 
                     # Add to Served Static Paths
                     self.SERVED_STATIC_PATHS[path] = data
+            # font files are binary format
+            elif path.endswith('.ttf') or path.endswith('.woff') or path.endswith('.woff2')\
+                    or path.endswith('.eot') or path.endswith('.otf'):
+                with open(path, 'rb') as f:
+                    # read file as binary
+                    data = f.read()
+
+                    # Add to Served Static Paths
+                    self.SERVED_STATIC_PATHS[path] = data
             else:
                 # try reading as utf-8 first
                 # if it fails, read as binary (because it might be an image)

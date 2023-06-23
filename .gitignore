@@ -6,4 +6,4 @@ venv
 src/*.egg-info
 tests/assets/**/*
 tests/server_test2.py
-test/index.html
+/tests/index.html

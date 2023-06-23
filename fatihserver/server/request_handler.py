@@ -306,9 +306,15 @@ class Response:
             elif self.content_type == 'image/png' \
                     or self.content_type == 'image/jpeg' \
                     or self.content_type == 'image/jpg' \
-                    or self.content_type == 'image/gif':
+                    or self.content_type == 'image/gif' \
+                    or self.content_type == '.otf' \
+                    or self.content_type == '.woff' \
+                    or self.content_type == '.ttf' \
+                    or self.content_type == '.woff2' \
+                    or self.content_type == '.eot':
                 # binary
                 pack = bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" f"{headers} \r\n\r\n", 'utf-8')
+                print(self.content_type)
                 data = self.body
 
                 return pack + data
@@ -582,6 +588,8 @@ class RequestHandler(BaseRequestHandler):
 
                         # Set content type
                         response.set_content_type(content_type)
+                    else:
+                        response.set_content_type(f'.{file_extension}')
 
                     # Set content length
                     response.set_content_length(len(static_file))
