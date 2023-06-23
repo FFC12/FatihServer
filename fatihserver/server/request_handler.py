@@ -448,7 +448,7 @@ class RequestHandler(BaseRequestHandler):
                     or method == 'HEAD':
 
                 if (method == 'GET' or method == 'OPTIONS') \
-                        and (result['body'] is not None or result['content_length'] > 0):
+                        and result['body'] is not None:
                     # GET and OPTIONS should not have body (RFC 7231)
                     # https://www.rfc-editor.org/rfc/rfc7231#section-4.3.1
                     result = HttpResult.r400()

@@ -1,6 +1,20 @@
+import sys
+
+import loguru
+
 from fatihserver.server.http_server import HttpServer
 
 from loguru import logger
+
+
+def set_log_level(level):
+    """
+    Set log level
+    :param level:
+    :return:
+    """
+    logger.remove()
+    logger.add(sys.stdout, level=level)
 
 
 class App:

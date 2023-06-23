@@ -138,66 +138,70 @@ class HttpRequestParser:
         :param lines:
         :return:
         """
-        # we have only body left so join them
-        # if you are using windows, use '\r\n' instead of '\n'
-        if os.name == 'posix':
-            body = '\n'.join(lines)
-        else:
-            body = '\r\n'.join(lines)
+        # if there's only spaces left
+        if lines[0].strip() != '':
+            # we have only body left so join them
+            # if you are using windows, use '\r\n' instead of '\n'
+            if os.name == 'posix':
+                body = '\n'.join(lines)
+            else:
+                body = '\r\n'.join(lines)
 
-        # save raw body
-        self.raw_body = body
+            # save raw body
+            self.raw_body = body
 
-        # parse body by 'Content-Type' header
-        if 'Content-Type' in self.headers:
-            try:
-                if self.headers['Content-Type'] == 'application/y-www-form-urlencoded':
-                    # parse body as url encoded
-                    body = {
-                        "type": "url_encoded",
-                        "data": self._parse_url_encoded(body)
-                    }
-                elif self.headers['Content-Type'] == 'application/json':
-                    # parse body as json
-                    body = {
-                        "type": "json",
-                        "data": self._parse_json(body)
-                    }
-                elif self.headers['Content-Type'] == 'text/plain':
+            # parse body by 'Content-Type' header
+            if 'Content-Type' in self.headers:
+                try:
+                    if self.headers['Content-Type'] == 'application/y-www-form-urlencoded':
+                        # parse body as url encoded
+                        body = {
+                            "type": "url_encoded",
+                            "data": self._parse_url_encoded(body)
+                        }
+                    elif self.headers['Content-Type'] == 'application/json':
+                        # parse body as json
+                        body = {
+                            "type": "json",
+                            "data": self._parse_json(body)
+                        }
+                    elif self.headers['Content-Type'] == 'text/plain':
+                        # parse body as text
+                        body = {
+                            "type": "text",
+                            "data": self._parse_text(body)
+                        }
+                    elif 'multipart/form-data' in self.headers['Content-Type']:
+                        # parse body as multipart
+                        body = {
+                            "type": "multipart",
+                            "data": self._parse_text(body)
+                        }
+
+                        logger.warning('Multipart form data is not supported yet')
+                        #boundary = self.headers['Content-Type'].split(';')[1].split('=')[1]
+                        #body = self._parse_multipart(body, boundary)
+                    else:
+                        # parse body as text
+                        body = {
+                            "type": "text",
+                            "data": self._parse_text(body)
+                        }
+                except Exception as e:
+                    logger.error(e)
                     # parse body as text
                     body = {
-                        "type": "text",
-                        "data": self._parse_text(body)
+                            "type": "text",
+                            "data": self._parse_text(body)
                     }
-                elif 'multipart/form-data' in self.headers['Content-Type']:
-                    # parse body as multipart
-                    body = {
-                        "type": "multipart",
-                        "data": self._parse_text(body)
-                    }
-
-                    logger.warning('Multipart form data is not supported yet')
-                    #boundary = self.headers['Content-Type'].split(';')[1].split('=')[1]
-                    #body = self._parse_multipart(body, boundary)
-                else:
-                    # parse body as text
-                    body = {
-                        "type": "text",
-                        "data": self._parse_text(body)
-                    }
-            except Exception as e:
-                logger.error(e)
+            else:
                 # parse body as text
                 body = {
-                        "type": "text",
-                        "data": self._parse_text(body)
+                    "type": "text",
+                    "data": self._parse_text(body)
                 }
         else:
-            # parse body as text
-            body = {
-                "type": "text",
-                "data": self._parse_text(body)
-            }
+            body = None
 
         self.body = body
         return {
