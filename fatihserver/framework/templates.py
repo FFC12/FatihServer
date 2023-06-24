@@ -116,10 +116,9 @@ class Templates:
                 'path': path
             }
 
-    def add_templates(self, name, path):
+    def add_templates(self, path):
         """
         Add template as directory.
-        :param name:
         :param path:
         :return:
         """
@@ -149,6 +148,9 @@ class Templates:
 
                 # remove '.' from path
                 path = path.replace('./', '')
+
+                # name of the template (without extension)
+                name = file.split('.')[0]
 
                 # add template
                 self.templates[name] = {
