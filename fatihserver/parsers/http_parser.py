@@ -37,7 +37,9 @@ class HttpRequestParser:
             version = lines[0].split(' ')[2]
         else:
             if len(parts) < 2:
-                raise Exception('Invalid request')
+                method = lines[0].split(' ')[0]
+                path = '/'
+                version = ''
             else:
                 method = lines[0].split(' ')[0]
                 path = lines[0].split(' ')[1]
