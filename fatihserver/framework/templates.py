@@ -1,4 +1,5 @@
 import os
+import sys
 
 import chevron
 from loguru import logger
@@ -112,8 +113,7 @@ class Templates:
         with open(path, "r") as f:
             self.templates[name] = {
                 'content': f.read(),
-                'path': path,
-                'type': 'file'
+                'path': path
             }
 
     def add_templates(self, name, path):
@@ -125,22 +125,23 @@ class Templates:
         """
         # check if path is directory
         if not os.path.isdir(path):
-            raise Exception("Path is not a directory.")
+            raise Exception(f"Path is not a directory. The `{path}` in `{os.getcwd()}` ")
 
         # walk recursively through the directory
         for root, dirs, files in os.walk(path):
             for file in files:
                 # check if file is binary format
-                if file.endswith(('.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2', '.ttf', '.eot')):
+                if file.endswith(('.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2', '.ttf', '.otf',
+                                  '.eot')):
                     continue
 
                 # check if file is hidden
                 if file.startswith(('.', '_')):
                     continue
 
-                # check if file is 'html*', 'css*', 'js*', 'txt', 'json', 'xml'
-                # TODO: add support for other file types
-                if not file.endswith(('.html', '.css', '.js', '.txt', '.json', '.xml')):
+                # check if file is 'html*'
+                # TODO: add support for other file types?
+                if not file.endswith('.html'):
                     continue
 
                 # absolute system as full path in the system
@@ -150,10 +151,9 @@ class Templates:
                 path = path.replace('./', '')
 
                 # add template
-                self.templates[path] = {
-                    'content': path,
-                    'path': path,
-                    'type': 'directory'
+                self.templates[name] = {
+                    'content': open(path, 'r').read(),
+                    'path': path
                 }
 
     def get_template(self, name):
@@ -202,6 +202,7 @@ if __name__ == "__main__":
     </html>
     """)
 
+    templates.add_templates('main', 'templates/')
 
-    s = TemplateResponse(templates, 'index', {'name': 'Fatih'})
+    s = TemplateResponse(templates, 'main', {'name': 'Fatih', 'title': 'FatihServer'})
     print(s)

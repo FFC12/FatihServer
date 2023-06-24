@@ -314,7 +314,6 @@ class Response:
                     or self.content_type == '.eot':
                 # binary
                 pack = bytes(f"HTTP/1.1 {self.status_code} {method_str}\n" f"{headers} \r\n\r\n", 'utf-8')
-                print(self.content_type)
                 data = self.body
 
                 return pack + data
