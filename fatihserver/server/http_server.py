@@ -50,15 +50,21 @@ class HttpServer:
         :return:
         """
         self.router.serve_static_files()
+
+        # We need to set allow_reuse_address to True because we want to be able to restart the server
+        ThreadedTCPServer.allow_reuse_address = True
+
+        # Create server
         server = ThreadedTCPServer((self.host, self.port), RequestHandler(self.router))
 
-        server.allow_reuse_port = True
-
+        # Get server address
         ip, port = server.server_address
         logger.info("🚀 FatihServer has launched at http://{}:{}".format(ip, port))
 
+        # Set server
         self.server = server
 
+        # Serve forever
         with server:
             # Start a thread with the server -- that thread will then start one
             # more thread for each request
